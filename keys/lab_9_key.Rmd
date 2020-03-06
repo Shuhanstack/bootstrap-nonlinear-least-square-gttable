@@ -50,6 +50,29 @@ We'll make a custom table using the `gt` package with the following goals:
 Build this one level at a time to see changes: 
 ```{r}
 disp_income %>% 
+  gt() 
+
+disp_income %>% 
+  gt() %>% 
+  tab_header(
+    title = "Life cycle savings", # Add a title
+    subtitle = "5 countries with lowest per capita disposable income" # And a subtitle
+  ) 
+
+disp_income %>% 
+  gt() %>% 
+  tab_header(
+    title = "Life cycle savings", # Add a title
+    subtitle = "5 countries with lowest per capita disposable income" # And a subtitle
+  ) %>% 
+  fmt_currency( # Reformat to currency notation...
+    columns = vars(dpi), # The values for the 'Height' variable
+    decimals = 2 # Keeping 3 decimal places
+  ) 
+```
+
+```{r}
+disp_income %>% 
   gt() %>% 
   tab_header(
     title = "Life cycle savings", # Add a title
@@ -66,7 +89,55 @@ disp_income %>%
   fmt_number(
     columns = vars(sr),
     decimals = 1
+  )
+```
+  
+```{r}
+disp_income %>% 
+  gt() %>% 
+  tab_header(
+    title = "Life cycle savings", # Add a title
+    subtitle = "5 countries with lowest per capita disposable income" # And a subtitle
   ) %>% 
+  fmt_currency( # Reformat to currency notation...
+    columns = vars(dpi), # The values for the 'Height' variable
+    decimals = 2 # Keeping 3 decimal places
+  ) %>% 
+  fmt_percent(
+    columns = vars(pop15, pop75, ddpi),
+    decimals = 1
+  ) %>% 
+  fmt_number(
+    columns = vars(sr),
+    decimals = 1
+  ) %>%
+  tab_options(
+    table.width = pct(80)
+  ) %>% 
+  tab_footnote(
+    footnote = "Data averaged from 1970 - 1980",
+    location = cells_title())
+```
+
+```{r}
+disp_income %>% 
+  gt() %>% 
+  tab_header(
+    title = "Life cycle savings", # Add a title
+    subtitle = "5 countries with lowest per capita disposable income" # And a subtitle
+  ) %>% 
+  fmt_currency( # Reformat to currency notation...
+    columns = vars(dpi), # The values for the 'Height' variable
+    decimals = 2 # Keeping 3 decimal places
+  ) %>% 
+  fmt_percent(
+    columns = vars(pop15, pop75, ddpi),
+    decimals = 1
+  ) %>% 
+  fmt_number(
+    columns = vars(sr),
+    decimals = 1
+  ) %>%
   tab_options(
     table.width = pct(80)
   ) %>% 
@@ -80,7 +151,8 @@ disp_income %>%
       palette = c(
         "orange", "red", "purple"), # Overboard colors! 
       domain = c(120,190) # Scale endpoints (outside will be gray)
-  )
+    ),
+    alpha = 0.7
   ) %>% 
   cols_label(
     sr = "Savings ratio",
@@ -93,7 +165,7 @@ disp_income %>%
 
 ### Bootstrapping!
 
-Bootstrapping uses **sampling with replacement** to find a sampling distribution that is based on more than a single sample. Let's bootstrap a 95% confidence interval for the mean salinity of river discharge in Pamlico Sound, NC (see `?salinity` for information on the dataset from the `boot`) package. 
+Bootstrapping uses **sampling with replacement** to find a sampling distribution that is based on more than a single sample. Let's bootstrap a 95% confidence interval for the mean salinity of river discharge in Pamlico Sound, NC (see `?salinity` for information on the dataset from the `boot` package). 
 
 From dataset documentation: "Biweekly averages of the water salinity and river discharge in Pamlico Sound, North Carolina were recorded between the years 1972 and 1977. The data in this set consists only of those measurements in March, April and May."
 
@@ -111,8 +183,8 @@ t.test(salinity$sal) # Get 95% CI for t-distribution
 
 ALWAYS ask questions: 
 
-- Do the data look normally distributed? 
-- Do we have a large enough n to depend on Central Limit Theorem? 
+- Do the data look **normally distributed**? 
+- Do we have a **large enough n** to depend on Central Limit Theorem? 
 - What assumptions do we make if we find the CI based on a single sample using the t-distribution here? 
 
 Bootstrap the mean salinity: 
@@ -137,13 +209,18 @@ salboot_10k <- boot(sal_nc,
 # Check out the output from the bootstrap:
 salboot_100
 salboot_10k
+```
 
+```{r, eval=FALSE}
 # Question: do we all get the same thing? What would we have to do in order to all get the same thing (hint: set.seed())? And would we *want* that? 
 
 # Use $t0 to see the original sample mean, and $t to see the means for each of the bootstrap samples:
 salboot_100$t0 # The original sample mean
 salboot_100$t # These are all the means for each 100 samples
 
+```
+
+```{r}
 # Make vectors of bootstrap sample means a data frame (so ggplot will deal with it). 
 salboot_100_df <- data.frame(bs_mean = salboot_100$t)
 salboot_10k_df <- data.frame(bs_mean = salboot_10k$t)
@@ -168,6 +245,31 @@ p1 + p2 + p3
 
 Seriously, check out how awesome `patchwork` by Thomas Lin Pedersen is: https://patchwork.data-imaginist.com/articles/guides/assembly.html...a game changer for piecing together compound figures! 
 
+use `wrap_element()` to add non-`ggplot` element to a patch and `par()` to control alignment
+```{r}
+old_par <- par(mar = c(0, 2, 0, 0), bg = NA)
+p1 + wrap_elements(panel = ~plot(mtcars$mpg, mtcars$disp), clip = FALSE)
+par(old_par)
+```
+
+```{r}
+p1 + grid::textGrob('Some really important text')
+
+# This will work
+wrap_elements(grid::textGrob('Text on left side')) + p1
+```
+
+```{r}
+p1 + gridExtra::tableGrob(mtcars[1:10, c('mpg', 'disp')])
+```
+
+```{r}
+patch <- p1 + p2
+patch - p3 & theme_bw()
+patch - p3 * theme_bw()
+```
+
+
 It also knows PEMDAS
 ```{r}
 p1 + p2 / p3
@@ -183,6 +285,7 @@ So now we have a sampling distribution based on means calculated from a large nu
 
 ```{r}
 boot.ci(salboot_10k, conf = 0.95)
+# BCa: accelerated bias-corrected, which seeks to correct for skewness as well as bias in the bootstrap distribution
 ```
 
 We'll chat a bit about what each of these CIs means, and you can read more here: https://besjournals.onlinelibrary.wiley.com/doi/pdf/10.1111/1365-2656.12382
@@ -295,4 +398,6 @@ df_ci <- confint2(df_nls)
 df_ci
 ```
 
-### END LAB 9
+### Note for bootstrap and NLS
+
+![](notes.jpg)
